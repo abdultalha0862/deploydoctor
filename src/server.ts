@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { prisma } from "./lib/prisma.js";
+import { analyzeLogs } from "./services/analyzer.js";
 
 const app = Fastify({
   logger: true,
@@ -62,6 +63,38 @@ async function start() {
 
     return incident;
   });
+
+
+  app.post<{
+  Params: {
+    id: string;
+  };
+}>("/incidents/:id/analyze", async (request, reply) => {
+  const incident = await prisma.incident.findUnique({
+    where: {
+      id: request.params.id,
+    },
+  });
+
+  if (!incident) {
+    return reply.code(404).send({
+      error: "Incident not found",
+    });
+  }
+
+  if (!incident.logs) {
+    return reply.code(400).send({
+      error: "Incident does not contain logs",
+    });
+  }
+
+  const diagnosis = analyzeLogs(incident.logs);
+
+  return {
+    incidentId: incident.id,
+    ...diagnosis,
+  };
+});
 
   const port = Number(process.env.PORT) || 3000;
   const host = process.env.HOST || "0.0.0.0";
