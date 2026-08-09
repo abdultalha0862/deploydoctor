@@ -33,7 +33,7 @@ zerops:
       # npm must resolve the musl build.
       buildCommands:
         - cd frontend && npm install
-        - cd frontend && VITE_API_URL=${RUNTIME_VITE_API_URL:-http://api:3000} npm run build
+        - cd frontend && VITE_API_URL=https://api-2bdf-3000.prg1.zerops.app npm run build
       # Paths are relative to the project root. The `~` strips the prefix so
       # frontend/dist/index.html becomes /index.html at the Nginx doc root.
       deployFiles:
