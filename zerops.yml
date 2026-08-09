@@ -18,3 +18,27 @@ zerops:
         - port: 3000
           httpSupport: true
       start: npm start
+
+  - setup: frontend
+    build:
+      base: nodejs@22
+      # VITE_API_URL is read at build time and baked into the static bundle.
+      # Set RUNTIME_VITE_API_URL in the frontend service's env vars (Zerops
+      # dashboard) to the public API URL, e.g.
+      # https://api.deploydoctor.abdultalha.dev. It falls back to the API
+      # service's internal hostname for a first deploy.
+      # Each buildCommands entry runs in its own shell, so the cd is chained
+      # into the same command. npm install (not ci): the build container is
+      # Alpine and Vite's native Rollup binaries are platform-specific, so
+      # npm must resolve the musl build.
+      buildCommands:
+        - cd frontend && npm install
+        - cd frontend && VITE_API_URL=${RUNTIME_VITE_API_URL:-http://api:3000} npm run build
+      # Paths are relative to the project root. The `~` strips the prefix so
+      # frontend/dist/index.html becomes /index.html at the Nginx doc root.
+      deployFiles:
+        - frontend/dist/~
+    run:
+      # Nginx serves the compiled output — no Node.js at runtime. SPA fallback
+      # (unmatched routes serve /index.html) is built in.
+      base: static

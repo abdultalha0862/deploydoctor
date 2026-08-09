@@ -1,0 +1,98 @@
+:root {
+  /* Surfaces (Apple light) */
+  --ink-900: #f5f5f7;
+  --ink-800: #ffffff;
+  --ink-700: #e8e8ed;
+  --panel: #ffffff;
+  --panel-raised: #f5f5f7;
+  --line: #d2d2d7;
+  --line-soft: #e8e8ed;
+
+  /* Text */
+  --fg: #1d1d1f;
+  --fg-strong: #1d1d1f;
+  --fg-muted: #6e6e73;
+  --fg-faint: #86868b;
+
+  /* Accent (Apple system blue + supporting) */
+  --signal: #0071e3;
+  --signal-dim: #0062c4;
+  --signal-glow: rgba(0, 113, 227, 0.15);
+  --warn: #b25000;
+  --danger: #d70015;
+  --info: #0071e3;
+
+  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+
+  /* ---- Apple type scale (SF, HIG-aligned) ---- */
+  /* Display sizes are fluid so they scale down on small viewports. */
+  --fs-hero: clamp(40px, 5.6vw, 64px); /* marketing display */
+  --fs-large-title: clamp(30px, 3.6vw, 40px); /* Large Title */
+  --fs-title-1: clamp(26px, 2.6vw, 32px); /* Title 1 */
+  --fs-title-2: 24px; /* Title 2 */
+  --fs-title-3: 20px; /* Title 3 */
+  --fs-headline: 17px; /* Headline (semibold body) */
+  --fs-body: 17px; /* Body */
+  --fs-callout: 16px; /* Callout */
+  --fs-subheadline: 15px; /* Subheadline */
+  --fs-footnote: 13px; /* Footnote */
+  --fs-caption-1: 12px; /* Caption 1 */
+  --fs-caption-2: 11px; /* Caption 2 */
+
+  /* Apple weights: SF Pro uses these named weights */
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+
+  /* Line heights tuned to Apple's leading (tighter on display, looser on body) */
+  --lh-display: 1.05;
+  --lh-title: 1.15;
+  --lh-heading: 1.25;
+  --lh-body: 1.47;
+  --lh-relaxed: 1.6;
+
+  /* Apple tracking: negative on large text, near-zero on body */
+  --tracking-display: -0.022em;
+  --tracking-title: -0.019em;
+  --tracking-heading: -0.014em;
+  --tracking-body: -0.01em;
+  --tracking-tight: -0.006em;
+
+  color-scheme: light;
+  font-family: var(--sans);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  letter-spacing: var(--tracking-body);
+  color: var(--fg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  color: var(--fg);
+  background-color: var(--ink-900);
+}
+
+h1,
+h2,
+h3 {
+  color: var(--fg-strong);
+  margin-top: 0;
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-heading);
+}
+
+p {
+  margin: 0;
+}
