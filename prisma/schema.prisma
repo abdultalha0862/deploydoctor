@@ -15,7 +15,7 @@ model Incident {
   logs           String?
   diagnosis      String?
   likelyCause    String?
-  evidence       String?
+  evidence       Json?
   recommendation String?
   confidence     Float?
   status         IncidentStatus   @default(OPEN)

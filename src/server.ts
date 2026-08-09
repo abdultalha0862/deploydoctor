@@ -97,7 +97,7 @@ async function start() {
       data: {
         diagnosis: diagnosis.diagnosis,
         likelyCause: diagnosis.likelyCause,
-        evidence: JSON.stringify(diagnosis.evidence),
+        evidence: diagnosis.evidence,
         recommendation: diagnosis.recommendation,
         confidence: diagnosis.confidence,
       },
