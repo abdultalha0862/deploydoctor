@@ -11,6 +11,7 @@ async function start() {
     origin: true,
   });
 
+  // Health check
   app.get("/health", async () => {
     return {
       status: "ok",
@@ -18,6 +19,7 @@ async function start() {
     };
   });
 
+  // Create an incident
   app.post<{
     Body: {
       title: string;
@@ -38,6 +40,27 @@ async function start() {
     });
 
     return reply.code(201).send(incident);
+  });
+
+  // Get an incident by ID
+  app.get<{
+    Params: {
+      id: string;
+    };
+  }>("/incidents/:id", async (request, reply) => {
+    const incident = await prisma.incident.findUnique({
+      where: {
+        id: request.params.id,
+      },
+    });
+
+    if (!incident) {
+      return reply.code(404).send({
+        error: "Incident not found",
+      });
+    }
+
+    return incident;
   });
 
   const port = Number(process.env.PORT) || 3000;
