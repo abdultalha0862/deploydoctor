@@ -64,37 +64,50 @@ async function start() {
     return incident;
   });
 
-
+  // Analyze an incident
   app.post<{
-  Params: {
-    id: string;
-  };
-}>("/incidents/:id/analyze", async (request, reply) => {
-  const incident = await prisma.incident.findUnique({
-    where: {
-      id: request.params.id,
-    },
+    Params: {
+      id: string;
+    };
+  }>("/incidents/:id/analyze", async (request, reply) => {
+    const incident = await prisma.incident.findUnique({
+      where: {
+        id: request.params.id,
+      },
+    });
+
+    if (!incident) {
+      return reply.code(404).send({
+        error: "Incident not found",
+      });
+    }
+
+    if (!incident.logs) {
+      return reply.code(400).send({
+        error: "Incident does not contain logs",
+      });
+    }
+
+    const diagnosis = analyzeLogs(incident.logs);
+
+    const updatedIncident = await prisma.incident.update({
+      where: {
+        id: incident.id,
+      },
+      data: {
+        diagnosis: diagnosis.diagnosis,
+        likelyCause: diagnosis.likelyCause,
+        evidence: JSON.stringify(diagnosis.evidence),
+        recommendation: diagnosis.recommendation,
+        confidence: diagnosis.confidence,
+      },
+    });
+
+    return {
+      incidentId: updatedIncident.id,
+      ...diagnosis,
+    };
   });
-
-  if (!incident) {
-    return reply.code(404).send({
-      error: "Incident not found",
-    });
-  }
-
-  if (!incident.logs) {
-    return reply.code(400).send({
-      error: "Incident does not contain logs",
-    });
-  }
-
-  const diagnosis = analyzeLogs(incident.logs);
-
-  return {
-    incidentId: incident.id,
-    ...diagnosis,
-  };
-});
 
   const port = Number(process.env.PORT) || 3000;
   const host = process.env.HOST || "0.0.0.0";
