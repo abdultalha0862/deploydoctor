@@ -1,205 +1,101 @@
 # DeployDoctor
 
-**Turn deployment failures into an actionable diagnosis.** Paste the logs from a
-failed deploy and DeployDoctor tells you *what* broke, *why*, the supporting
-evidence, and the exact next steps to fix it — instead of leaving you to read a
-wall of stack traces.
+Paste the logs from a failed deployment and get back a structured diagnosis:
+what broke, the likely cause, the evidence from the logs, and the steps to fix
+it.
 
-![DeployDoctor — diagnosis view](docs/screenshot-diagnosis.png)
+DeployDoctor matches logs against a library of known failure signatures first,
+which is instant and needs no API key. When the logs don't match a known
+pattern, it falls back to Google Gemini for a diagnosis in the same format.
 
-> Replace the image above with a real screenshot — see [Screenshots](#screenshots).
+## How it works
 
----
+1. The frontend creates an incident (`POST /incidents`) with a title, optional
+   environment, and the logs.
+2. It then requests analysis (`POST /incidents/:id/analyze`).
+3. The API runs the deterministic analyzer in `src/services/analyzer.ts`,
+   matching the logs against known error signatures.
+4. If the match confidence is below `0.8`, it calls Gemini
+   (`src/services/ai-analyzer.ts`), which returns the same JSON shape.
+5. The diagnosis is saved to PostgreSQL and returned to the UI.
 
-## Problem
+Every diagnosis has the same fields: `diagnosis`, `likelyCause`, `evidence`,
+`recommendation`, `nextSteps`, `severity`, `category`, and `confidence`.
 
-Deployment failures almost always leave useful logs behind — `ECONNREFUSED`,
-`CrashLoopBackOff`, `JavaScript heap out of memory`, `502 Bad Gateway` — but a
-developer still has to interpret them by hand: recognise the signature, guess the
-root cause, and remember the fix. That first layer of triage is repetitive,
-error-prone, and eats time during exactly the moments that matter most.
+## Recognized signatures
 
-I kept hitting the same wall while deploying open-source apps with Docker,
-Kubernetes, PostgreSQL and Redis: the logs told the story, but I had to decode it
-every single time. DeployDoctor automates that first layer of troubleshooting.
+The deterministic analyzer covers common deployment failures:
 
-## Solution
+| Category   | Example signal                                        |
+| ---------- | ----------------------------------------------------- |
+| DATABASE   | `ECONNREFUSED …:5432`, `relation "…" does not exist`  |
+| CACHE      | `ECONNREFUSED …:6379`                                 |
+| DOCKER     | `port is already allocated`, `manifest … not found`   |
+| KUBERNETES | `CrashLoopBackOff`, `ImagePullBackOff`                |
+| RUNTIME    | `JavaScript heap out of memory`, `OOMKilled`          |
+| NETWORK    | `getaddrinfo ENOTFOUND`, `502 Bad Gateway`            |
+| CONFIG     | `DATABASE_URL is undefined`                           |
+| SYSTEM     | `permission denied` / `EACCES`                        |
 
-DeployDoctor takes an incident (a title, environment, and logs) and returns a
-**structured diagnosis**:
+Anything else is handed to Gemini.
 
-- **Diagnosis** — a one-line explanation of what failed
-- **Severity + Category** — e.g. `HIGH · DATABASE`
-- **Likely cause** — the most probable root cause
-- **Evidence** — the specific signals pulled from the logs
-- **Recommended fix** — the single most important action
-- **Next steps** — an ordered checklist to verify and resolve
+## Tech stack
 
-It uses a fast **deterministic analyzer** for well-known failure signatures and
-falls back to **Google Gemini** for anything unfamiliar, so common incidents are
-diagnosed instantly (no API key required) while novel ones still get answered.
+| Layer    | Technology                                         |
+| -------- | -------------------------------------------------- |
+| Frontend | React 19, TypeScript, Vite                         |
+| API      | Fastify 5, TypeScript (Node 22)                    |
+| Database | PostgreSQL via Prisma ORM 7 (`@prisma/adapter-pg`) |
+| AI       | Google Gemini (`gemini-2.5-flash`)                 |
+| Hosting  | Zerops                                             |
 
-## Features
+## API
 
-- ⚡ **Instant diagnosis** for 12+ common deployment failure signatures
-- 🧠 **AI fallback** (Gemini) for unrecognised or low-confidence logs
-- 🎯 **Structured output**: severity, category, evidence, fix, and next steps
-- 🧪 **One-click examples** to try Postgres, Redis, Docker, Kubernetes,
-  networking and config failures
-- 🗄️ **Incident persistence** in PostgreSQL via Prisma
-- 🚀 **Deployed on Zerops**
+| Method | Path                     | Description                |
+| ------ | ------------------------ | -------------------------- |
+| GET    | `/health`                | Service health check       |
+| POST   | `/incidents`             | Create an incident         |
+| GET    | `/incidents/:id`         | Fetch an incident by id    |
+| POST   | `/incidents/:id/analyze` | Analyze an incident's logs |
 
-## Architecture
+## Local development
 
-```
-        ┌──────────────┐        ┌──────────────────┐        ┌──────────────┐
-        │  React + Vite │  HTTP  │  DeployDoctor API │  SQL   │  PostgreSQL  │
-        │  (frontend)   │ ─────▶ │     (Fastify)     │ ─────▶ │  (incidents) │
-        └──────────────┘        └────────┬─────────┘        └──────────────┘
-                                         │
-                                         │ fallback for unknown logs
-                                         ▼
-                                 ┌────────────────┐
-                                 │  Google Gemini │
-                                 │  (2.5 Flash)   │
-                                 └────────────────┘
-```
-
-The API first runs a deterministic analyzer. If confidence is below a threshold,
-it asks Gemini and returns the same structured shape. Every incident and its
-diagnosis is stored in PostgreSQL.
-
-## Tech Stack
-
-| Layer     | Technology                                        |
-| --------- | ------------------------------------------------- |
-| Frontend  | React 19, TypeScript, Vite                        |
-| API       | Fastify 5, TypeScript (Node 22)                   |
-| Database  | PostgreSQL via Prisma ORM 7 (`@prisma/adapter-pg`)|
-| AI        | Google Gemini (`gemini-2.5-flash`)                |
-| Hosting   | Zerops                                            |
-
-## How It Works
-
-1. The frontend `POST`s the incident to `/incidents`.
-2. It then calls `POST /incidents/:id/analyze`.
-3. The API runs the **deterministic analyzer** (`src/services/analyzer.ts`),
-   matching the logs against known failure patterns.
-4. If confidence `< 0.8`, it falls back to **Gemini**
-   (`src/services/ai-analyzer.ts`).
-5. The diagnosis is persisted and returned to the UI, which renders the
-   severity/category badges, evidence, fix, and next steps.
-
-## AI Diagnosis
-
-The deterministic analyzer recognises signatures including:
-
-| Category    | Example signal                          |
-| ----------- | --------------------------------------- |
-| DATABASE    | `ECONNREFUSED …:5432`, `relation "…" does not exist` |
-| CACHE       | `ECONNREFUSED …:6379`                   |
-| DOCKER      | `port is already allocated`, `manifest … not found` |
-| KUBERNETES  | `CrashLoopBackOff`, `ImagePullBackOff`  |
-| RUNTIME     | `JavaScript heap out of memory`         |
-| NETWORK     | `getaddrinfo ENOTFOUND`, `502 Bad Gateway` |
-| CONFIG      | `DATABASE_URL is undefined`             |
-| SYSTEM      | `permission denied` / `EACCES`          |
-
-Anything else is handed to Gemini with a strict prompt that returns the same JSON
-shape (diagnosis, likelyCause, evidence, recommendation, nextSteps, severity,
-category, confidence).
-
-## Zerops Deployment
-
-DeployDoctor runs on [Zerops](https://zerops.io). Both services are described in
-[`zerops.yml`](./zerops.yml).
-
-**`api`** (Fastify backend)
-
-- **Build**: `npm ci` → `npx prisma generate` → `npm run build`
-- **Runtime**: Node 22, `npm start` (`node dist/server.js`)
-- **Port**: `3000` with HTTP support
-- **Data**: a Zerops PostgreSQL service, injected via `DATABASE_URL`
-
-The server binds to `0.0.0.0` and reads `PORT`/`HOST` from the environment so it
-works unchanged on Zerops.
-
-**`frontend`** (React + Vite SPA)
-
-- **Build**: `npm install` → `npm run build` (run inside `frontend/`)
-- **Runtime**: `static` — Nginx serves `frontend/dist` with SPA fallback built
-  in (no Node process at request time)
-- **API URL**: `VITE_API_URL` is baked into the bundle at build time from the
-  `RUNTIME_VITE_API_URL` env var (defaults to the internal `http://api:3000`).
-
-
-
-## Screenshots
-
-> Add screenshots here — the diagnosis view is the strongest one to lead with.
-
-1. Create a `docs/` folder and drop your images in it.
-2. Reference them, for example:
-
-```md
-![Incident form](docs/screenshot-form.png)
-![Diagnosis result](docs/screenshot-diagnosis.png)
-```
-
-## Live Demo
-
-- **App**: https://deploydoctor.abdultalha.dev
-- **API health check**: `<your-zerops-api-url>/health`
-
-## API Endpoints
-
-| Method | Path                     | Description                              |
-| ------ | ------------------------ | ---------------------------------------- |
-| GET    | `/health`                | Service health check                     |
-| POST   | `/incidents`             | Create an incident                       |
-| GET    | `/incidents/:id`         | Fetch an incident by id                  |
-| POST   | `/incidents/:id/analyze` | Analyze an incident and return the fix   |
-
-## Local Development
-
-**Prerequisites:** Node 22+, a PostgreSQL database, and (optionally) a Gemini API
-key for the AI fallback.
+Requires Node 22+, a PostgreSQL database, and optionally a Gemini API key for
+the AI fallback.
 
 ```bash
-# 1. API (repository root)
+# API (repository root)
 npm install
 npx prisma generate
-npx prisma migrate deploy   # or `migrate dev` locally
-npm run dev                 # starts the Fastify API on :3000
+npx prisma migrate deploy   # use `migrate dev` while iterating locally
+npm run dev                 # Fastify API on :3000
 
-# 2. Frontend (in a second terminal)
+# Frontend (second terminal)
 cd frontend
 npm install
-npm run dev                 # starts Vite on :5173
+npm run dev                 # Vite on :5173
 ```
 
-**Environment variables:**
+## Environment variables
 
-| Variable              | Used by           | Purpose                                        |
-| --------------------- | ----------------- | ---------------------------------------------- |
-| `DATABASE_URL`        | API               | PostgreSQL connection string                   |
-| `GEMINI_API_KEY`      | API               | Enables the Gemini AI fallback                 |
-| `PORT` / `HOST`       | API               | Bind address (defaults `3000` / `0.0.0.0`)     |
-| `VITE_API_URL`        | Frontend (local)  | Base URL of the API (defaults localhost)       |
-| `RUNTIME_VITE_API_URL`| Frontend (Zerops) | Public API URL baked into the build on deploy  |
+| Variable               | Used by           | Purpose                                    |
+| ---------------------- | ----------------- | ------------------------------------------ |
+| `DATABASE_URL`         | API               | PostgreSQL connection string               |
+| `GEMINI_API_KEY`       | API               | Enables the Gemini fallback                |
+| `PORT` / `HOST`        | API               | Bind address (defaults `3000` / `0.0.0.0`) |
+| `VITE_API_URL`         | Frontend (local)  | Base URL of the API                        |
+| `RUNTIME_VITE_API_URL` | Frontend (Zerops) | Public API URL baked in at build time      |
 
-## What I Learned
+## Deployment
 
-- How to turn messy, unstructured log output into a consistent, structured
-  diagnosis that is actually useful under pressure.
-- Balancing a **deterministic-first, AI-fallback** design — fast and free for
-  common cases, smart for the long tail — instead of sending everything to an LLM.
-- Deploying a full-stack app (React + Fastify + PostgreSQL + Prisma) to Zerops,
-  including build pipelines, service networking, and environment configuration.
+Both services are defined in [`zerops.yml`](./zerops.yml).
 
-## Future Improvements
+- **api** — Node 22. Builds with `npm ci`, `npx prisma generate`, `npm run
+  build`, then runs `node dist/server.js` on port 3000. The database URL is
+  injected via `DATABASE_URL`.
+- **frontend** — built with Vite and served as static files by Nginx with SPA
+  fallback. The API URL is baked into the bundle at build time from
+  `RUNTIME_VITE_API_URL`, falling back to the API's internal hostname.
 
-- Broaden the deterministic pattern library and add confidence tuning.
-- Let users confirm/correct diagnoses to build a feedback dataset.
-- Incident history view with filtering by severity and category.
-- Direct log ingestion from CI/CD and container platforms.
+The API binds to `0.0.0.0` and reads `PORT`/`HOST` from the environment, so it
+runs unchanged locally and on Zerops.
