@@ -23,65 +23,26 @@ async function start() {
 
   // Create an incident
   app.post<{
-  Params: {
-    id: string;
-  };
-}>("/incidents/:id/analyze", async (request, reply) => {
-  const incident = await prisma.incident.findUnique({
-    where: {
-      id: request.params.id,
-    },
+    Body: {
+      title: string;
+      description?: string;
+      environment?: string;
+      logs?: string;
+      severity?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+    };
+  }>("/incidents", async (request, reply) => {
+    const incident = await prisma.incident.create({
+      data: {
+        title: request.body.title,
+        description: request.body.description,
+        environment: request.body.environment,
+        logs: request.body.logs,
+        severity: request.body.severity,
+      },
+    });
+
+    return reply.code(201).send(incident);
   });
-
-  if (!incident) {
-    return reply.code(404).send({
-      error: "Incident not found",
-    });
-  }
-
-  if (!incident.logs) {
-    return reply.code(400).send({
-      error: "Incident does not contain logs",
-    });
-  }
-
-  let diagnosis = analyzeLogs(incident.logs);
-
-  // Use Gemini when the deterministic analyzer cannot confidently
-  // identify the failure.
-  if (diagnosis.confidence < 0.8) {
-    if (!process.env.GEMINI_API_KEY) {
-      return reply.code(500).send({
-        error: "GEMINI_API_KEY is not configured",
-      });
-    }
-
-    diagnosis = await analyzeWithAI({
-      title: incident.title,
-      description: incident.description,
-      environment: incident.environment,
-      logs: incident.logs,
-    });
-  }
-
-  const updatedIncident = await prisma.incident.update({
-    where: {
-      id: incident.id,
-    },
-    data: {
-      diagnosis: diagnosis.diagnosis,
-      likelyCause: diagnosis.likelyCause,
-      evidence: diagnosis.evidence,
-      recommendation: diagnosis.recommendation,
-      confidence: diagnosis.confidence,
-    },
-  });
-
-  return {
-    incidentId: updatedIncident.id,
-    ...diagnosis,
-  };
-});
 
   // Get an incident by ID
   app.get<{
@@ -128,8 +89,26 @@ async function start() {
       });
     }
 
-    const diagnosis = analyzeLogs(incident.logs);
+    // First try deterministic analysis.
+    let diagnosis = analyzeLogs(incident.logs);
 
+    // Fall back to Gemini for unknown or low-confidence failures.
+    if (diagnosis.confidence < 0.8) {
+      if (!process.env.GEMINI_API_KEY) {
+        return reply.code(500).send({
+          error: "GEMINI_API_KEY is not configured",
+        });
+      }
+
+      diagnosis = await analyzeWithAI({
+        title: incident.title,
+        description: incident.description,
+        environment: incident.environment,
+        logs: incident.logs,
+      });
+    }
+
+    // Persist the diagnosis.
     const updatedIncident = await prisma.incident.update({
       where: {
         id: incident.id,
