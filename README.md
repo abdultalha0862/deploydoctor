@@ -132,24 +132,7 @@ works unchanged on Zerops.
 - **API URL**: `VITE_API_URL` is baked into the bundle at build time from the
   `RUNTIME_VITE_API_URL` env var (defaults to the internal `http://api:3000`).
 
-### Custom domain (`deploydoctor.abdultalha.dev`)
 
-The app is served on the custom domain via the **`frontend`** service. Custom
-domains are configured in the Zerops dashboard (not in `zerops.yml`):
-
-1. In the **`frontend`** service → **Public Access & Internal Ports**, enable
-   public HTTP access.
-2. Add the domain `deploydoctor.abdultalha.dev` and point your DNS `A`/`AAAA`
-   records at the Zerops IPs shown there. Wait for the SSL certificate to go
-   active before disabling the fallback `*.zerops.app` subdomain.
-3. Point the frontend at the API by setting `RUNTIME_VITE_API_URL` (frontend
-   service env var) to the API's public URL — either the API's `*.zerops.app`
-   subdomain or, if you also give the API a domain, e.g.
-   `https://api.deploydoctor.abdultalha.dev`. Redeploy the `frontend` service so
-   the new URL is baked into the bundle.
-
-CORS needs no change: the API uses `@fastify/cors` with `origin: true`, so it
-already accepts requests from the custom domain.
 
 ## Screenshots
 
