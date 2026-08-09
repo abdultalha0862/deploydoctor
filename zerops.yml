@@ -9,6 +9,8 @@ zerops:
         - ./dist
         - ./node_modules
         - ./package.json
+        - ./prisma
+        - ./prisma.config.ts
     run:
       base: nodejs@22
       ports:
