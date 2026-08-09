@@ -11,6 +11,8 @@ model Incident {
   id          String   @id @default(uuid())
   title       String
   description String?
+  environment String?
+  logs        String?
   status      IncidentStatus @default(OPEN)
   severity    IncidentSeverity @default(MEDIUM)
   createdAt   DateTime @default(now())
