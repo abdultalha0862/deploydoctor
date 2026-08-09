@@ -4,6 +4,7 @@ zerops:
       base: nodejs@22
       buildCommands:
         - npm ci
+        - npx prisma generate
         - npm run build
       deployFiles:
         - ./dist
