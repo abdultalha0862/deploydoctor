@@ -8,6 +8,8 @@ DeployDoctor matches logs against a library of known failure signatures first,
 which is instant and needs no API key. When the logs don't match a known
 pattern, it falls back to Google Gemini for a diagnosis in the same format.
 
+Live Demo : [https://frontend-2bdf.prg1.zerops.app/](https://frontend-2bdf.prg1.zerops.app/)
+
 ## How it works
 
 1. The frontend creates an incident (`POST /incidents`) with a title, optional
